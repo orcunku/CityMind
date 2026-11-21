@@ -6,6 +6,7 @@ app = FastAPI(
     version="0.1.0",
 )
 
+
 @app.get("/")
 def home():
     return {
@@ -13,6 +14,7 @@ def home():
         "message": "CityMind API is running",
         "version": "0.1.0",
     }
+
 
 @app.get("/health")
 def health():
