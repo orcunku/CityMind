@@ -157,17 +157,19 @@ def test_future_measurement():
 # ============================================================
 
 def test_invalid_measurement():
-    with pytest.raises(ValueError):
-        citymind_graph.invoke({
-            "measurement": {
-                "value": -10,
-                "period": {
-                    "datetimeTo": {
-                        "utc": FIXED_NOW.isoformat()
-                    }
-                },
-            }
-        })
+    result = citymind_graph.invoke({
+        "measurement": {"value": -5.0},
+    })
+
+    assert result["coordination_status"] == "rejected"
+    assert result["assigned_task"] == (
+        "reject_invalid_measurement"
+    )
+
+    assert "analysis" not in result
+    assert "report" not in result
+    assert "memory_status" not in result
+    assert "incident_id" not in result
 
 
 # ============================================================
@@ -175,8 +177,17 @@ def test_invalid_measurement():
 # ============================================================
 
 def test_missing_measurement():
-    with pytest.raises(ValueError):
-        citymind_graph.invoke({})
+    result = citymind_graph.invoke({})
+
+    assert result["coordination_status"] == "rejected"
+    assert result["assigned_task"] == (
+        "reject_invalid_measurement"
+    )
+
+    assert "analysis" not in result
+    assert "report" not in result
+    assert "memory_status" not in result
+    assert "incident_id" not in result
 
 
 # ============================================================
@@ -202,6 +213,7 @@ def test_historical_routing():
         visited.extend(event.keys())
 
     assert visited == [
+        "coordinator",
         "monitoring",
         "investigation",
         "historical",
@@ -233,6 +245,7 @@ def test_fresh_routing():
         visited.extend(event.keys())
 
     assert visited == [
+        "coordinator",
         "monitoring",
         "investigation",
         "decision",

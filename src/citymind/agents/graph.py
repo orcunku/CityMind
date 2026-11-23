@@ -1,6 +1,10 @@
 import os
 from typing import Any, TypedDict
 
+from citymind.agents.coordinator import (
+    coordinator_node,
+    route_after_coordination,
+)
 from citymind.agents.memory_node import memory_node
 
 from langgraph.graph import END, START, StateGraph
@@ -16,6 +20,8 @@ from citymind.tools.measurement_quality import (
 # ============================================================
 
 class CityMindState(TypedDict, total=False):
+    coordination_status: str
+    assigned_task: str
     measurement: dict[str, Any]
     monitoring_status: str
     quality_result: dict[str, Any]
@@ -24,6 +30,7 @@ class CityMindState(TypedDict, total=False):
     report: dict[str, Any]
     memory_status: str
     incident_id: int | None
+    vector_status: str
 
 
 # ============================================================
@@ -206,6 +213,11 @@ def build_citymind_graph():
 
     # Register nodes
     builder.add_node(
+        "coordinator",
+        coordinator_node,
+    )
+
+    builder.add_node(
         "monitoring",
         monitoring_node,
     )
@@ -238,7 +250,16 @@ def build_citymind_graph():
     # Entry point
     builder.add_edge(
         START,
-        "monitoring",
+        "coordinator",
+    )
+
+    builder.add_conditional_edges(
+        "coordinator",
+        route_after_coordination,
+        {
+            "investigate": "monitoring",
+            "reject": END,
+        },
     )
 
     builder.add_edge(
