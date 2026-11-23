@@ -1,4 +1,7 @@
+import os
 from typing import Any, TypedDict
+
+from citymind.agents.memory_node import memory_node
 
 from langgraph.graph import END, START, StateGraph
 
@@ -19,6 +22,8 @@ class CityMindState(TypedDict, total=False):
     analysis: dict[str, Any]
     decision: str
     report: dict[str, Any]
+    memory_status: str
+    incident_id: int | None
 
 
 # ============================================================
@@ -167,6 +172,18 @@ def action_node(state: CityMindState) -> dict:
     }
 
 
+def persist_memory_node(state: CityMindState) -> dict:
+    """
+    Persist the completed analysis without creating alerts.
+    """
+    db_path = os.getenv(
+        "CITYMIND_DB_PATH",
+        "data/citymind_incidents.db",
+    )
+
+    return memory_node(state, db_path=db_path)
+
+
 # ============================================================
 # BUILD LANGGRAPH WORKFLOW
 # ============================================================
@@ -204,6 +221,11 @@ def build_citymind_graph():
         action_node,
     )
 
+    builder.add_node(
+        "memory",
+        persist_memory_node,
+    )
+
     # Entry point
     builder.add_edge(
         START,
@@ -239,6 +261,11 @@ def build_citymind_graph():
     # Finish workflow
     builder.add_edge(
         "action",
+        "memory",
+    )
+
+    builder.add_edge(
+        "memory",
         END,
     )
 

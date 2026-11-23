@@ -140,3 +140,47 @@ def get_incident(
         ).fetchone()
 
     return dict(row) if row is not None else None
+
+
+def list_recent_incidents(
+    limit: int = 10,
+    db_path: str | Path = DEFAULT_DB_PATH,
+) -> list[dict]:
+    """
+    Return the most recently inserted incidents.
+
+    This is read-only and does not create alerts.
+    """
+    if (
+        isinstance(limit, bool)
+        or not isinstance(limit, int)
+        or not 1 <= limit <= 100
+    ):
+        raise ValueError("Invalid incident limit")
+
+    db_path = Path(db_path)
+
+    if not db_path.is_file():
+        return []
+
+    with sqlite3.connect(db_path) as connection:
+        connection.row_factory = sqlite3.Row
+
+        rows = connection.execute(
+            """
+            SELECT
+                id,
+                measurement_value,
+                measured_at,
+                data_status,
+                severity,
+                decision,
+                created_at
+            FROM incidents
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    return [dict(row) for row in rows]

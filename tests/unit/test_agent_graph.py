@@ -206,6 +206,7 @@ def test_historical_routing():
         "investigation",
         "historical",
         "action",
+        "memory",
     ]
 
 
@@ -236,4 +237,5 @@ def test_fresh_routing():
         "investigation",
         "decision",
         "action",
+        "memory",
     ]
