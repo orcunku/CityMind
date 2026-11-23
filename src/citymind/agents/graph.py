@@ -1,10 +1,6 @@
 from typing import Any, TypedDict
 
-from langgraph.graph import (
-    END,
-    START,
-    StateGraph,
-)
+from langgraph.graph import END, START, StateGraph
 
 from citymind.detection.anomaly import (
     detect_pm25_anomaly,
@@ -20,8 +16,6 @@ class CityMindState(TypedDict, total=False):
 
 
 def monitoring_node(state: CityMindState) -> dict:
-    """Gelen ölçümü kontrol eder."""
-
     measurement = state.get("measurement")
 
     if not isinstance(measurement, dict):
@@ -35,8 +29,6 @@ def monitoring_node(state: CityMindState) -> dict:
 
 
 def investigation_node(state: CityMindState) -> dict:
-    """Veri kalitesini ve anomaliyi analiz eder."""
-
     analysis = detect_pm25_anomaly(
         state["measurement"]
     )
@@ -46,15 +38,29 @@ def investigation_node(state: CityMindState) -> dict:
     }
 
 
-def decision_node(state: CityMindState) -> dict:
-    """Analiz sonucuna göre karar oluşturur."""
+def route_after_investigation(
+    state: CityMindState,
+) -> str:
+    """Eski ve güncel verileri farklı yollara yönlendirir."""
 
+    if state["analysis"]["data_status"] != "fresh":
+        return "historical"
+
+    return "current"
+
+
+def historical_node(state: CityMindState) -> dict:
+    """Eski ölçümler için güvenli karar üretir."""
+
+    return {
+        "decision": "historical_analysis_only"
+    }
+
+
+def decision_node(state: CityMindState) -> dict:
     analysis = state["analysis"]
 
-    if analysis["data_status"] != "fresh":
-        decision = "historical_analysis_only"
-
-    elif analysis["eligible_for_live_alert"]:
+    if analysis["eligible_for_live_alert"]:
         decision = "requires_investigation"
 
     elif analysis["severity"] == "review":
@@ -69,8 +75,6 @@ def decision_node(state: CityMindState) -> dict:
 
 
 def action_node(state: CityMindState) -> dict:
-    """Kararı yapılandırılmış rapora dönüştürür."""
-
     analysis = state["analysis"]
 
     report = {
@@ -94,54 +98,29 @@ def action_node(state: CityMindState) -> dict:
 
 
 def build_citymind_graph():
-    """CityMind LangGraph iş akışını oluşturur."""
-
     builder = StateGraph(CityMindState)
 
-    builder.add_node(
-        "monitoring",
-        monitoring_node,
-    )
+    builder.add_node("monitoring", monitoring_node)
+    builder.add_node("investigation", investigation_node)
+    builder.add_node("historical", historical_node)
+    builder.add_node("decision", decision_node)
+    builder.add_node("action", action_node)
 
-    builder.add_node(
+    builder.add_edge(START, "monitoring")
+    builder.add_edge("monitoring", "investigation")
+
+    builder.add_conditional_edges(
         "investigation",
-        investigation_node,
+        route_after_investigation,
+        {
+            "historical": "historical",
+            "current": "decision",
+        },
     )
 
-    builder.add_node(
-        "decision",
-        decision_node,
-    )
-
-    builder.add_node(
-        "action",
-        action_node,
-    )
-
-    builder.add_edge(
-        START,
-        "monitoring",
-    )
-
-    builder.add_edge(
-        "monitoring",
-        "investigation",
-    )
-
-    builder.add_edge(
-        "investigation",
-        "decision",
-    )
-
-    builder.add_edge(
-        "decision",
-        "action",
-    )
-
-    builder.add_edge(
-        "action",
-        END,
-    )
+    builder.add_edge("historical", "action")
+    builder.add_edge("decision", "action")
+    builder.add_edge("action", END)
 
     return builder.compile()
 
