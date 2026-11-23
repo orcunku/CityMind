@@ -19,3 +19,8 @@ def isolate_incident_database(tmp_path, monkeypatch):
         "CITYMIND_DB_PATH",
         str(db_path),
     )
+
+    monkeypatch.setenv(
+        "CITYMIND_CHROMA_PATH",
+        str(tmp_path / "citymind_test_chroma"),
+    )

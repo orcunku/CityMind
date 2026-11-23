@@ -9,11 +9,13 @@ import sqlite3
 from pathlib import Path
 
 from citymind.memory.database import save_incident
+from citymind.memory.indexer import index_sqlite_incident
 
 
 def memory_node(
     state: dict,
     db_path: str | Path,
+    chroma_path: str | Path | None = None,
 ) -> dict:
     """
     Persist an analyzed measurement safely.
@@ -56,7 +58,21 @@ def memory_node(
             "incident_id": None,
         }
 
-    return {
+    result = {
         "memory_status": "saved",
         "incident_id": incident_id,
     }
+
+    if chroma_path is not None:
+        try:
+            index_result = index_sqlite_incident(
+                incident_id=incident_id,
+                db_path=db_path,
+                persist_directory=chroma_path,
+            )
+            result["vector_status"] = index_result["index_status"]
+        except Exception:
+            # Vector indexing must not invalidate SQLite persistence.
+            result["vector_status"] = "unavailable"
+
+    return result

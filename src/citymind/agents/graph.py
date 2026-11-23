@@ -181,7 +181,16 @@ def persist_memory_node(state: CityMindState) -> dict:
         "data/citymind_incidents.db",
     )
 
-    return memory_node(state, db_path=db_path)
+    chroma_path = os.getenv(
+        "CITYMIND_CHROMA_PATH",
+        "chroma",
+    )
+
+    return memory_node(
+        state,
+        db_path=db_path,
+        chroma_path=chroma_path,
+    )
 
 
 # ============================================================
