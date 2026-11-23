@@ -9,10 +9,81 @@ from citymind.ingestion.data_quality import (
 # CITYMIND - PM2.5 ANOMALY DETECTION
 # ============================================================
 
-# Prototype thresholds (not official health limits)
+# Prototype thresholds - not official health limits
 PM25_REVIEW_THRESHOLD = 15.0
 PM25_HIGH_THRESHOLD = 35.0
 
+
+# ============================================================
+# QUALITY VALIDATION
+# ============================================================
+
+def validate_quality_result(quality: dict) -> dict:
+    """
+    Validate the structure and consistency
+    of a measurement quality result.
+
+    Reject contradictory or malformed results.
+    """
+
+    if not isinstance(quality, dict):
+        raise ValueError(
+            "Measurement quality must be a dictionary"
+        )
+
+    if "is_fresh" not in quality:
+        raise ValueError(
+            "Measurement quality is missing is_fresh"
+        )
+
+    is_fresh = quality["is_fresh"]
+
+    if not isinstance(is_fresh, bool):
+        raise ValueError(
+            "Measurement quality is_fresh must be boolean"
+        )
+
+    # Supports the original checker schema ("status")
+    # and the measurement tool schema ("data_status").
+    has_data_status = "data_status" in quality
+    has_status = "status" in quality
+
+    if not has_data_status and not has_status:
+        raise ValueError(
+            "Measurement quality status is missing"
+        )
+
+    if has_data_status and has_status:
+        if quality["data_status"] != quality["status"]:
+            raise ValueError(
+                "Conflicting measurement quality statuses"
+            )
+
+    data_status = (
+        quality["data_status"]
+        if has_data_status
+        else quality["status"]
+    )
+
+    if data_status not in ("fresh", "stale"):
+        raise ValueError(
+            "Invalid measurement quality status"
+        )
+
+    if is_fresh != (data_status == "fresh"):
+        raise ValueError(
+            "Conflicting freshness and status values"
+        )
+
+    return {
+        "is_fresh": is_fresh,
+        "data_status": data_status,
+    }
+
+
+# ============================================================
+# PM2.5 ANOMALY DETECTION
+# ============================================================
 
 def detect_pm25_anomaly(
     measurement: dict,
@@ -22,18 +93,17 @@ def detect_pm25_anomaly(
     """
     Classify a PM2.5 measurement.
 
-    If quality is provided, reuse its freshness
-    result instead of calculating freshness again.
+    If quality is provided, reuse it instead
+    of calculating freshness again.
 
-    If quality is not provided, calculate freshness
-    using the original data quality function.
+    Invalid quality results are rejected.
 
     Historical measurements cannot trigger
     live alerts.
     """
 
     # --------------------------------------------------------
-    # STEP 1 - CHECK OR REUSE DATA QUALITY
+    # STEP 1 - GET QUALITY RESULT
     # --------------------------------------------------------
 
     if quality is None:
@@ -41,6 +111,10 @@ def detect_pm25_anomaly(
             measurement,
             now=now,
         )
+
+    validated_quality = validate_quality_result(
+        quality
+    )
 
     # --------------------------------------------------------
     # STEP 2 - VALIDATE PM2.5 VALUE
@@ -75,32 +149,18 @@ def detect_pm25_anomaly(
         severity = "normal"
 
     # --------------------------------------------------------
-    # STEP 4 - INTERPRET QUALITY RESULT
+    # STEP 4 - APPLY FRESHNESS SAFETY RULES
     # --------------------------------------------------------
 
-    is_fresh = quality["is_fresh"]
+    is_fresh = validated_quality["is_fresh"]
+    data_status = validated_quality["data_status"]
 
-    # Supports the original quality checker schema
-    # and the measurement quality tool schema.
-    data_status = quality.get(
-        "data_status",
-        quality.get("status"),
+    eligible_for_live_alert = (
+        is_fresh and severity == "high"
     )
 
-    if data_status not in ("fresh", "stale"):
-        raise ValueError(
-            "Invalid measurement quality status"
-        )
-
-    # Fail closed if quality fields disagree.
-    if is_fresh is not True:
-        data_status = "stale"
-
-    if data_status != "fresh":
-        is_fresh = False
-
     # --------------------------------------------------------
-    # STEP 5 - RETURN ANOMALY ANALYSIS
+    # STEP 5 - RETURN ANALYSIS
     # --------------------------------------------------------
 
     return {
@@ -111,7 +171,7 @@ def detect_pm25_anomaly(
         "data_status": data_status,
         "is_anomaly": severity != "normal",
         "eligible_for_live_alert": (
-            is_fresh and severity == "high"
+            eligible_for_live_alert
         ),
         "reason": (
             "Historical measurement: live alert blocked"
