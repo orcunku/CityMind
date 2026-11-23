@@ -1,7 +1,7 @@
 """
 CITYMIND MCP Server.
 
-Exposes safe environmental analysis tools
+Exposes environmental monitoring tools
 through the Model Context Protocol.
 """
 
@@ -10,9 +10,30 @@ from mcp.server.fastmcp import FastMCP
 from citymind.detection.anomaly import (
     detect_pm25_anomaly,
 )
+from citymind.tools.measurement_quality import (
+    measurement_quality_tool,
+)
 
 
 mcp = FastMCP("CityMind")
+
+
+def build_measurement(
+    value: float,
+    measured_at: str,
+) -> dict:
+    """
+    Build a measurement dictionary compatible
+    with CityMind's ingestion layer.
+    """
+    return {
+        "value": value,
+        "period": {
+            "datetimeTo": {
+                "utc": measured_at,
+            }
+        },
+    }
 
 
 @mcp.tool()
@@ -23,27 +44,34 @@ def analyze_pm25(
     """
     Analyze a PM2.5 measurement.
 
-    Args:
-        value: PM2.5 concentration in µg/m³.
-        measured_at: Measurement timestamp in ISO 8601
-            format, including timezone information.
+    Returns severity, freshness and alert eligibility.
 
-    Returns:
-        Severity, freshness status and alert eligibility.
-
-    This tool does not create or send live alerts.
+    Does not create or send live alerts.
     """
-
-    measurement = {
-        "value": value,
-        "period": {
-            "datetimeTo": {
-                "utc": measured_at,
-            }
-        },
-    }
-
+    measurement = build_measurement(
+        value,
+        measured_at,
+    )
     return detect_pm25_anomaly(measurement)
+
+
+@mcp.tool()
+def check_measurement_quality(
+    value: float,
+    measured_at: str,
+) -> dict:
+    """
+    Check measurement freshness.
+
+    Returns the measurement quality tool result.
+
+    Does not create or send live alerts.
+    """
+    measurement = build_measurement(
+        value,
+        measured_at,
+    )
+    return measurement_quality_tool(measurement)
 
 
 if __name__ == "__main__":
