@@ -14,6 +14,7 @@ from mcp.client.stdio import stdio_client
 from citymind.mcp.errors import (
     MCPConnectionError,
     MCPInvalidResponseError,
+    MCPToolExecutionError,
 )
 
 
@@ -71,7 +72,7 @@ async def _call_tool_with_session(
         )
 
         if result.isError:
-            raise RuntimeError(
+            raise MCPToolExecutionError(
                 f"MCP tool failed: {tool_name}"
             )
 

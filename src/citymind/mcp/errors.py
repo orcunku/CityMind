@@ -17,3 +17,7 @@ class MCPConnectionError(MCPError):
 
 class MCPInvalidResponseError(MCPError):
     """MCP returned an invalid or inconsistent response."""
+
+
+class MCPToolExecutionError(MCPError):
+    """MCP server reported a tool execution failure."""
