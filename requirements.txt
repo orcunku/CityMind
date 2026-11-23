@@ -3,4 +3,7 @@ uvicorn
 httpx
 pydantic
 python-dotenv
-pytestlanggraph==1.2.24
+pytest
+langgraph==1.2.24
+
+mcp>=1.30,<2
