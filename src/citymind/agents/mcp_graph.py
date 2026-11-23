@@ -18,7 +18,7 @@ from citymind.agents.graph import (
 from citymind.agents.mcp_investigation import (
     mcp_investigation_node,
 )
-from citymind.mcp.errors import MCPInvalidResponseError
+from citymind.mcp.errors import MCPConnectionError, MCPInvalidResponseError
 
 
 async def safe_mcp_investigation_node(state):
@@ -28,7 +28,7 @@ async def safe_mcp_investigation_node(state):
     """
     try:
         return await mcp_investigation_node(state)
-    except ConnectionError:
+    except (ConnectionError, MCPConnectionError):
         error_type = "mcp_connection_error"
     except MCPInvalidResponseError:
         error_type = "mcp_invalid_response"
