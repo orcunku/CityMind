@@ -1,3 +1,4 @@
+from citymind.mcp.errors import MCPInvalidResponseError
 """
 Security: MCP quality results must belong
 to the measurement being investigated.
@@ -58,7 +59,7 @@ async def test_mcp_rejects_quality_for_different_timestamp(
     }
 
     with pytest.raises(
-        ValueError,
+        MCPInvalidResponseError,
         match="timestamp mismatch",
     ):
         await investigation_module.mcp_investigation_node({

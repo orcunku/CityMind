@@ -8,8 +8,12 @@ to the measurement being investigated.
 from datetime import datetime, timezone
 from typing import Any
 
-from citymind.detection.anomaly import detect_pm25_anomaly
+from citymind.detection.anomaly import (
+    detect_pm25_anomaly,
+    validate_quality_result,
+)
 from citymind.mcp.client import call_citymind_mcp_tool
+from citymind.mcp.errors import MCPInvalidResponseError
 
 
 def parse_measurement_timestamp(value: str) -> datetime:
@@ -67,20 +71,34 @@ async def mcp_investigation_node(
     )
 
     if not isinstance(quality, dict):
-        raise ValueError("Invalid MCP quality response")
+        raise MCPInvalidResponseError(
+            "Invalid MCP quality response"
+        )
 
     expected_timestamp = parse_measurement_timestamp(
         measured_at
     )
 
-    received_timestamp = parse_measurement_timestamp(
-        quality.get("measured_at")
-    )
+    try:
+        received_timestamp = parse_measurement_timestamp(
+            quality.get("measured_at")
+        )
+    except ValueError as exc:
+        raise MCPInvalidResponseError(
+            "Invalid MCP measurement timestamp"
+        ) from exc
 
     if received_timestamp != expected_timestamp:
-        raise ValueError(
+        raise MCPInvalidResponseError(
             "MCP measurement timestamp mismatch"
         )
+
+    try:
+        validate_quality_result(quality)
+    except ValueError as exc:
+        raise MCPInvalidResponseError(
+            "Invalid MCP quality data"
+        ) from exc
 
     analysis = detect_pm25_anomaly(
         measurement,

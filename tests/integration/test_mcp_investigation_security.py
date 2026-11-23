@@ -5,6 +5,7 @@ Security tests for the MCP-backed investigation node.
 from datetime import datetime, timezone
 
 import pytest
+from citymind.mcp.errors import MCPInvalidResponseError
 
 import citymind.agents.mcp_investigation as investigation_module
 
@@ -51,8 +52,8 @@ async def test_mcp_investigation_rejects_conflicting_quality(
     }
 
     with pytest.raises(
-        ValueError,
-        match="Conflicting freshness",
+        MCPInvalidResponseError,
+        match="Invalid MCP quality data",
     ):
         await investigation_module.mcp_investigation_node({
             "measurement": measurement,
