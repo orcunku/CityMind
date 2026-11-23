@@ -11,7 +11,10 @@ import sys
 
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
-from citymind.mcp.errors import MCPConnectionError
+from citymind.mcp.errors import (
+    MCPConnectionError,
+    MCPInvalidResponseError,
+)
 
 
 async def call_citymind_mcp_tool(
@@ -76,21 +79,26 @@ async def _call_tool_with_session(
             data = result.structuredContent
         else:
             if not result.content:
-                raise ValueError(
+                raise MCPInvalidResponseError(
                     "MCP tool returned no content"
                 )
 
             if result.content[0].type != "text":
-                raise ValueError(
+                raise MCPInvalidResponseError(
                     "Unexpected MCP response type"
                 )
 
-            data = json.loads(
-                result.content[0].text
-            )
+            try:
+                data = json.loads(
+                    result.content[0].text
+                )
+            except (json.JSONDecodeError, TypeError) as exc:
+                raise MCPInvalidResponseError(
+                    "Invalid MCP JSON response"
+                ) from exc
 
         if not isinstance(data, dict):
-            raise ValueError(
+            raise MCPInvalidResponseError(
                 "MCP tool must return a dictionary"
             )
 
