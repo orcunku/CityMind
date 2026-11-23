@@ -1,26 +1,46 @@
 """
-CITYMIND MCP-backed investigation node.
+MCP-backed investigation node for CITYMIND.
 
-Uses the MCP protocol to obtain measurement
-quality information before anomaly detection.
-
-Does not create or send live alerts.
+Validates that MCP quality results correspond
+to the measurement being investigated.
 """
 
+from datetime import datetime, timezone
 from typing import Any
 
 from citymind.detection.anomaly import detect_pm25_anomaly
 from citymind.mcp.client import call_citymind_mcp_tool
 
 
+def parse_measurement_timestamp(value: str) -> datetime:
+    """
+    Parse a timezone-aware ISO 8601 timestamp.
+    """
+    if not isinstance(value, str):
+        raise ValueError("Invalid measurement timestamp")
+
+    try:
+        parsed = datetime.fromisoformat(
+            value.replace("Z", "+00:00")
+        )
+    except ValueError as exc:
+        raise ValueError(
+            "Invalid measurement timestamp"
+        ) from exc
+
+    if parsed.tzinfo is None:
+        raise ValueError(
+            "Measurement timestamp must include timezone"
+        )
+
+    return parsed.astimezone(timezone.utc)
+
+
 async def mcp_investigation_node(
     state: dict[str, Any],
 ) -> dict:
     """
-    Investigate a PM2.5 measurement using MCP.
-
-    Reuse the MCP quality result for anomaly
-    detection and return LangGraph state updates.
+    Investigate a measurement using MCP quality data.
     """
 
     measurement = state.get("measurement")
@@ -32,9 +52,7 @@ async def mcp_investigation_node(
 
     try:
         value = measurement["value"]
-        measured_at = measurement[
-            "period"
-        ]["datetimeTo"]["utc"]
+        measured_at = measurement["period"]["datetimeTo"]["utc"]
     except (KeyError, TypeError) as exc:
         raise ValueError(
             "Measurement value and timestamp are required"
@@ -47,6 +65,22 @@ async def mcp_investigation_node(
             "measured_at": measured_at,
         },
     )
+
+    if not isinstance(quality, dict):
+        raise ValueError("Invalid MCP quality response")
+
+    expected_timestamp = parse_measurement_timestamp(
+        measured_at
+    )
+
+    received_timestamp = parse_measurement_timestamp(
+        quality.get("measured_at")
+    )
+
+    if received_timestamp != expected_timestamp:
+        raise ValueError(
+            "MCP measurement timestamp mismatch"
+        )
 
     analysis = detect_pm25_anomaly(
         measurement,

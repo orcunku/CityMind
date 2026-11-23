@@ -30,6 +30,7 @@ async def test_mcp_investigation_rejects_conflicting_quality(
             "tool_name": "measurement_quality",
             "is_fresh": True,
             "data_status": "stale",
+            "measured_at": arguments["measured_at"],
         }
 
     monkeypatch.setattr(
