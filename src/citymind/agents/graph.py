@@ -2,9 +2,8 @@ from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
 
-from citymind.detection.anomaly import (
-    detect_pm25_anomaly,
-)
+from citymind.detection.anomaly import detect_pm25_anomaly
+from citymind.tools.measurement_quality import measurement_quality_tool
 
 
 class CityMindState(TypedDict, total=False):
@@ -29,9 +28,18 @@ def monitoring_node(state: CityMindState) -> dict:
 
 
 def investigation_node(state: CityMindState) -> dict:
-    analysis = detect_pm25_anomaly(
-        state["measurement"]
-    )
+    """
+    First call the measurement quality tool,
+    then perform PM2.5 anomaly detection.
+    """
+
+    measurement = state["measurement"]
+
+    quality = measurement_quality_tool(measurement)
+    analysis = detect_pm25_anomaly(measurement)
+
+    analysis["data_status"] = quality["data_status"]
+    analysis["is_fresh"] = quality["is_fresh"]
 
     return {
         "analysis": analysis
@@ -41,7 +49,10 @@ def investigation_node(state: CityMindState) -> dict:
 def route_after_investigation(
     state: CityMindState,
 ) -> str:
-    """Eski ve güncel verileri farklı yollara yönlendirir."""
+    """
+    Route historical and current measurements
+    through different paths.
+    """
 
     if state["analysis"]["data_status"] != "fresh":
         return "historical"
@@ -50,7 +61,10 @@ def route_after_investigation(
 
 
 def historical_node(state: CityMindState) -> dict:
-    """Eski ölçümler için güvenli karar üretir."""
+    """
+    Historical measurements must not
+    trigger live alerts.
+    """
 
     return {
         "decision": "historical_analysis_only"
