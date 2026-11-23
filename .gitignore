@@ -33,3 +33,7 @@ logs/
 # Editor and operating system
 .DS_Store
 .vscode/
+# CITYMIND local incident memory
+*.db
+*.db-shm
+*.db-wal
