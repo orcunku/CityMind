@@ -3,4 +3,4 @@ uvicorn
 httpx
 pydantic
 python-dotenv
-pytest
+pytestlanggraph==1.2.24
