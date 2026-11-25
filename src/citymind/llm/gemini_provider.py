@@ -50,6 +50,7 @@ class GeminiProvider:
                 api_key=config.api_key,
                 vertexai=False,
                 http_options=types.HttpOptions(
+                    api_version="v1beta",
                     timeout=max(
                         1,
                         int(config.timeout_seconds * 1000),

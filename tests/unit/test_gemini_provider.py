@@ -219,14 +219,24 @@ def test_invalid_response(
 
 
 def test_unreadable_response(provider, generate_mock):
+    from types import SimpleNamespace
+    from google.genai.types import FinishReason
+
     class InvalidResponse:
+        candidates = [
+            SimpleNamespace(finish_reason=FinishReason.STOP)
+        ]
+
         @property
         def text(self):
             raise ValueError("Invalid response structure")
 
     generate_mock.return_value = InvalidResponse()
 
-    with pytest.raises(LLMResponseError):
+    with pytest.raises(
+        LLMResponseError,
+        match="^Unable to read Gemini response$",
+    ):
         provider.generate("Analyze data")
 
 
