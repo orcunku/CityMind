@@ -6,6 +6,7 @@ from citymind.agents.coordinator import (
     route_after_coordination,
 )
 from citymind.agents.memory_node import memory_node
+from citymind.agents.executor import execute_agent
 
 from langgraph.graph import END, START, StateGraph
 
@@ -18,6 +19,12 @@ from citymind.tools.measurement_quality import (
 # ============================================================
 # CITYMIND - LANGGRAPH AGENT STATE
 # ============================================================
+
+class CityMindInput(TypedDict, total=False):
+    """Allowed external workflow input."""
+
+    measurement: dict[str, Any]
+
 
 class CityMindState(TypedDict, total=False):
     coordination_status: str
@@ -209,42 +216,73 @@ def build_citymind_graph():
     Build and compile the CITYMIND agent graph.
     """
 
-    builder = StateGraph(CityMindState)
+    builder = StateGraph(
+        CityMindState,
+        input_schema=CityMindInput,
+    )
 
     # Register nodes
     builder.add_node(
         "coordinator",
-        coordinator_node,
+        lambda state: execute_agent(
+            "coordinator",
+            coordinator_node,
+            state,
+        ),
     )
 
     builder.add_node(
         "monitoring",
-        monitoring_node,
+        lambda state: execute_agent(
+            "monitoring",
+            monitoring_node,
+            state,
+        ),
     )
 
     builder.add_node(
         "investigation",
-        investigation_node,
+        lambda state: execute_agent(
+            "investigation",
+            investigation_node,
+            state,
+        ),
     )
 
     builder.add_node(
         "historical",
-        historical_node,
+        lambda state: execute_agent(
+            "historical",
+            historical_node,
+            state,
+        ),
     )
 
     builder.add_node(
         "decision",
-        decision_node,
+        lambda state: execute_agent(
+            "decision",
+            decision_node,
+            state,
+        ),
     )
 
     builder.add_node(
         "action",
-        action_node,
+        lambda state: execute_agent(
+            "action",
+            action_node,
+            state,
+        ),
     )
 
     builder.add_node(
         "memory",
-        persist_memory_node,
+        lambda state: execute_agent(
+            "memory",
+            persist_memory_node,
+            state,
+        ),
     )
 
     # Entry point

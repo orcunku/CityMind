@@ -26,9 +26,13 @@ def is_valid_measurement_structure(measurement: Any) -> bool:
     if (
         isinstance(value, bool)
         or not isinstance(value, (int, float))
-        or not math.isfinite(value)
-        or value < 0
     ):
+        return False
+
+    try:
+        if not math.isfinite(value) or value < 0:
+            return False
+    except (OverflowError, ValueError, TypeError):
         return False
 
     period = measurement.get("period")
