@@ -21,3 +21,7 @@ class LLMResponseError(LLMError):
 
 class LLMTimeoutError(LLMError):
     """LLM operation exceeded its time limit."""
+
+
+class LLMRateLimitError(LLMConnectionError):
+    """LLM provider rate limit or quota exceeded."""

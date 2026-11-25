@@ -24,6 +24,70 @@ class LLMConfig:
     timeout_seconds: float = 30.0
     max_output_tokens: int = 1024
 
+def validate_llm_config(config: LLMConfig) -> None:
+    """Validate configuration before provider initialization."""
+
+    if not isinstance(config, LLMConfig):
+        raise LLMConfigurationError(
+            "Invalid LLM configuration object"
+        )
+
+    if type(config.enabled) is not bool:
+        raise LLMConfigurationError(
+            "LLM enabled flag must be boolean"
+        )
+
+    if (
+        not isinstance(config.provider, str)
+        or config.provider not in SUPPORTED_PROVIDERS
+    ):
+        raise LLMConfigurationError(
+            "Unsupported LLM provider"
+        )
+
+    if not isinstance(config.model, str):
+        raise LLMConfigurationError(
+            "Invalid LLM model"
+        )
+
+    if not isinstance(config.api_key, str):
+        raise LLMConfigurationError(
+            "Invalid LLM API key"
+        )
+
+    if config.enabled and not config.model.strip():
+        raise LLMConfigurationError(
+            "LLM model is required"
+        )
+
+    if config.enabled and not config.api_key.strip():
+        raise LLMConfigurationError(
+            "LLM API key is required"
+        )
+
+    timeout = config.timeout_seconds
+
+    if (
+        isinstance(timeout, bool)
+        or not isinstance(timeout, (int, float))
+        or not 0 < timeout <= 120
+        or not math.isfinite(timeout)
+    ):
+        raise LLMConfigurationError(
+            "Invalid LLM timeout"
+        )
+
+    tokens = config.max_output_tokens
+
+    if (
+        type(tokens) is not int
+        or not 1 <= tokens <= 4096
+    ):
+        raise LLMConfigurationError(
+            "Invalid LLM output token limit"
+        )
+
+
 def load_llm_config() -> LLMConfig:
     """Load and validate LLM environment settings."""
 
@@ -96,7 +160,7 @@ def load_llm_config() -> LLMConfig:
             f"{key_variable} is required"
         )
 
-    return LLMConfig(
+    config = LLMConfig(
         enabled=enabled,
         provider=provider,
         model=model,
@@ -104,3 +168,6 @@ def load_llm_config() -> LLMConfig:
         timeout_seconds=timeout_seconds,
         max_output_tokens=max_output_tokens,
     )
+
+    validate_llm_config(config)
+    return config

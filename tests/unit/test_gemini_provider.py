@@ -10,7 +10,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from google.genai import errors
+from google.genai import errors, types
 
 from citymind.llm.config import LLMConfig
 from citymind.llm.provider import LLMProvider
@@ -21,6 +21,17 @@ from citymind.llm.errors import (
     LLMResponseError,
     LLMTimeoutError,
 )
+
+
+def completed_response(**kwargs):
+    return MagicMock(
+        candidates=[
+            MagicMock(
+                finish_reason=types.FinishReason.STOP
+            )
+        ],
+        **kwargs,
+    )
 
 
 @pytest.fixture
@@ -101,7 +112,7 @@ def test_invalid_configuration(
 
 
 def test_successful_generation(provider, generate_mock):
-    generate_mock.return_value = MagicMock(
+    generate_mock.return_value = completed_response(
         text="Environmental analysis"
     )
 
@@ -115,7 +126,7 @@ def test_successful_generation(provider, generate_mock):
 def test_response_whitespace_removed(
     provider, generate_mock
 ):
-    generate_mock.return_value = MagicMock(
+    generate_mock.return_value = completed_response(
         text="  Environmental analysis  \n"
     )
 
@@ -125,7 +136,7 @@ def test_response_whitespace_removed(
 
 
 def test_generation_parameters(provider, generate_mock):
-    generate_mock.return_value = MagicMock(text="Analysis")
+    generate_mock.return_value = completed_response(text="Analysis")
 
     provider.generate(
         "Analyze PM2.5",
@@ -149,7 +160,7 @@ def test_generation_parameters(provider, generate_mock):
 def test_automatic_function_calling_disabled(
     provider, generate_mock
 ):
-    generate_mock.return_value = MagicMock(text="Analysis")
+    generate_mock.return_value = completed_response(text="Analysis")
 
     provider.generate("Analyze data")
 
@@ -199,7 +210,7 @@ def test_invalid_system_prompt(
 def test_invalid_response(
     provider, generate_mock, response_text
 ):
-    generate_mock.return_value = MagicMock(
+    generate_mock.return_value = completed_response(
         text=response_text
     )
 
