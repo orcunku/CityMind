@@ -2,7 +2,7 @@
 
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints, field_validator
 
 
 AnalysisText = Annotated[
@@ -35,12 +35,12 @@ class InvestigationOutput(BaseModel):
 
     summary: AnalysisText
 
-    evidence: list[EvidenceText] = Field(
+    evidence: tuple[EvidenceText, ...] = Field(
         min_length=1,
         max_length=10,
     )
 
-    uncertainties: list[EvidenceText] = Field(
+    uncertainties: tuple[EvidenceText, ...] = Field(
         max_length=10,
     )
 
@@ -50,3 +50,11 @@ class InvestigationOutput(BaseModel):
         "request_additional_data",
         "request_human_review",
     ]
+
+
+    @field_validator("evidence", "uncertainties", mode="before")
+    @classmethod
+    def freeze_sequences(cls, value):
+        if isinstance(value, list):
+            return tuple(value)
+        return value
