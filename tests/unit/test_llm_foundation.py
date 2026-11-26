@@ -15,6 +15,25 @@ from citymind.llm.errors import (
 
 
 class MockLLMProvider:
+    def __init__(self):
+        self._closed = False
+
+    @property
+    def closed(self) -> bool:
+        return self._closed
+
+    def close(self) -> None:
+        self._closed = True
+
+    def __enter__(self):
+        if self._closed:
+            raise LLMConfigurationError("Provider is closed")
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
+        return False
+
     def generate(
         self,
         prompt: str,

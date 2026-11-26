@@ -94,3 +94,168 @@ def test_no_automatic_fallback(config):
 
             groq.assert_called_once_with(config)
             gemini.assert_not_called()
+
+
+@pytest.fixture(params=["groq", "gemini"])
+def lifecycle_provider(config, request):
+    provider = request.param
+
+    if provider == "groq":
+        model = "openai/gpt-oss-120b"
+        path = "citymind.llm.groq_provider.groq.Groq"
+    else:
+        model = "gemini-3.1-flash-lite"
+        path = "citymind.llm.gemini_provider.genai.Client"
+
+    selected = replace(
+        config, provider=provider, model=model
+    )
+
+    with patch(path) as constructor:
+        instance = create_llm_provider(selected)
+        yield instance, constructor.return_value
+
+
+def test_factory_provider_implements_lifecycle(
+    lifecycle_provider,
+):
+    from citymind.llm.provider import LLMProvider
+
+    provider, client = lifecycle_provider
+
+    assert isinstance(provider, LLMProvider)
+    assert provider.closed is False
+    client.close.assert_not_called()
+
+
+def test_factory_provider_context_closes_client(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+
+    with provider as active:
+        assert active is provider
+        assert active.closed is False
+        client.close.assert_not_called()
+
+    assert provider.closed is True
+    client.close.assert_called_once_with()
+
+
+def test_factory_provider_close_is_idempotent(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+
+    provider.close()
+    provider.close()
+
+    assert provider.closed is True
+    client.close.assert_called_once_with()
+
+def test_factory_provider_closes_on_error(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+
+    with pytest.raises(RuntimeError, match="Test failure"):
+        with provider:
+            raise RuntimeError("Test failure")
+
+    assert provider.closed is True
+    client.close.assert_called_once_with()
+
+def test_factory_provider_rejects_closed_context(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+    provider.close()
+
+    with pytest.raises(LLMConfigurationError):
+        with provider:
+            pytest.fail("Closed provider was reopened")
+
+    client.close.assert_called_once_with()
+
+def test_factory_provider_rejects_closed_generation(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+    provider.close()
+
+    with pytest.raises(LLMConfigurationError):
+        provider.generate("Analyze PM2.5")
+
+    client.chat.completions.create.assert_not_called()
+    client.models.generate_content.assert_not_called()
+    client.close.assert_called_once_with()
+
+
+def test_factory_provider_cleanup_failure(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+    client.close.side_effect = RuntimeError("SDK failure")
+
+    with pytest.raises(LLMConnectionError):
+        with provider:
+            pass
+
+    assert provider.closed is True
+
+    with pytest.raises(LLMConfigurationError):
+        provider.generate("Analyze PM2.5")
+
+    client.close.assert_called_once_with()
+
+
+def test_factory_provider_preserves_original_error(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+    client.close.side_effect = RuntimeError("SDK failure")
+
+    original = ValueError("Original operation failure")
+
+    with pytest.raises(ValueError) as captured:
+        with provider:
+            raise original
+
+    assert captured.value is original
+    assert provider.closed is True
+    client.close.assert_called_once_with()
+
+
+def test_factory_provider_cleanup_failure(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+    client.close.side_effect = RuntimeError("SDK failure")
+
+    with pytest.raises(LLMConnectionError):
+        with provider:
+            pass
+
+    assert provider.closed is True
+
+    with pytest.raises(LLMConfigurationError):
+        provider.generate("Analyze PM2.5")
+
+    client.close.assert_called_once_with()
+
+
+def test_factory_provider_preserves_original_error(
+    lifecycle_provider,
+):
+    provider, client = lifecycle_provider
+    client.close.side_effect = RuntimeError("SDK failure")
+
+    original = ValueError("Original operation failure")
+
+    with pytest.raises(ValueError) as captured:
+        with provider:
+            raise original
+
+    assert captured.value is original
+    assert provider.closed is True
+    client.close.assert_called_once_with()
