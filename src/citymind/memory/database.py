@@ -57,7 +57,16 @@ def save_incident(
     if (
         isinstance(measurement_value, bool)
         or not isinstance(measurement_value, (int, float))
-        or not math.isfinite(measurement_value)
+    ):
+        raise ValueError("Invalid measurement value")
+
+    try:
+        measurement_value = float(measurement_value)
+    except (OverflowError, ValueError, TypeError):
+        raise ValueError("Invalid measurement value") from None
+
+    if (
+        not math.isfinite(measurement_value)
         or measurement_value < 0
     ):
         raise ValueError("Invalid measurement value")
@@ -111,7 +120,7 @@ def get_incident(
     if (
         isinstance(incident_id, bool)
         or not isinstance(incident_id, int)
-        or incident_id <= 0
+        or not 1 <= incident_id <= 2**63 - 1
     ):
         raise ValueError("Invalid incident ID")
 
